@@ -1,3 +1,5 @@
+const double EPSILON = 1e-6;
+
 void TestExcludeStopWordsFromAddedDocumentContent() {
     const int doc_id = 42;
     const string content = "cat in the city"s;
@@ -95,25 +97,34 @@ void TestFoundDocumentsAreSortedByRelevanceInDescendingOrder() {
     server.AddDocument(doc_id_3, content_3, DocumentStatus::ACTUAL, ratings_3);
     
     const auto found_docs = server.FindTopDocuments("cat new city"s);
-    const vector<int> resulting_order_of_docs = {found_docs[0].id, found_docs[1].id, found_docs[2].id};
-    const vector<int> expected_order_of_docs = {doc_id_1, doc_id_3, doc_id_2};
-    
-    ASSERT_EQUAL_HINT(resulting_order_of_docs, expected_order_of_docs, "Search results are not sorted in descending order of relevance"s);
+    ASSERT_HINT(found_docs[0].relevance >= found_docs[1].relevance, "Search results are not sorted in descending order of relevance"s);
+    ASSERT_HINT(found_docs[1].relevance >= found_docs[2].relevance, "Search results are not sorted in descending order of relevance"s);
 }
 
 void TestCorrectCalculationOfAverageDocumentRating() {
     const int doc_id_1 = 1;
     const string content_1 = "cat in the city"s;
-    const vector<int> ratings_int_res = {5, 7};
+    const vector<int> ratings_1 = {5, 7};
     
-    const int doc_id_2 = 3;
+    const int doc_id_2 = 2;
     const string content_2 = "white rabbit in the new york city"s;
-    const vector<int> ratings_fract_res = {5, 6};
+    const vector<int> ratings_2 = {5, 6};
+    
+    const int doc_id_3 = 3;
+    const string content_3 = "bold dog under the main city bridge"s;
+    const vector<int> ratings_3 = {-4, 5, 6};
+    
+    const int doc_id_4 = 4;
+    const string content_4 = "the quick brown fox jumps over the lazy dog"s;
+    const vector<int> ratings_4 = {-4, -5, -8};
     
     SearchServer server;
-    server.SetStopWords("in the under"s);
-    server.AddDocument(doc_id_1, content_1, DocumentStatus::ACTUAL, ratings_int_res);
-    server.AddDocument(doc_id_2, content_2, DocumentStatus::ACTUAL, ratings_fract_res);
+    server.SetStopWords("in the under over"s);
+    server.AddDocument(doc_id_1, content_1, DocumentStatus::ACTUAL, ratings_1);
+    server.AddDocument(doc_id_2, content_2, DocumentStatus::ACTUAL, ratings_2);
+    server.AddDocument(doc_id_3, content_3, DocumentStatus::ACTUAL, ratings_3);
+    server.AddDocument(doc_id_4, content_4, DocumentStatus::ACTUAL, ratings_4);
+    
     
     {
         const auto found_document = server.FindTopDocuments("cat"s)[0];
@@ -125,6 +136,18 @@ void TestCorrectCalculationOfAverageDocumentRating() {
         const auto found_document = server.FindTopDocuments("rabbit"s)[0];
         const int expected_avg_rating = 5;
         ASSERT_EQUAL_HINT(found_document.rating, expected_avg_rating, "Incorrect result of average rating calculation (probably you returns fractional number instead of integer)");
+    }
+    
+    {
+        const auto found_document = server.FindTopDocuments("bridge"s)[0];
+        const int expected_avg_rating = 2;
+        ASSERT_EQUAL_HINT(found_document.rating, expected_avg_rating, "Incorrect result of average rating calculation with positive and negative numbers");
+    }
+    
+    {
+        const auto found_document = server.FindTopDocuments("fox"s)[0];
+        const int expected_avg_rating = -5;
+        ASSERT_EQUAL_HINT(found_document.rating, expected_avg_rating, "Incorrect result of average rating calculation with negative numbers");
     }
 }
 
@@ -169,9 +192,14 @@ void TestSearchingDocumentsWithSpecifiedStatus() {
     const string content_1 = "cat in the city"s;
     const vector<int> ratings_1 = {10, 20, 30};
     
+    const int doc_id_2 = 2;
+    const string content_2 = "white rabbit in the new york city"s;
+    const vector<int> ratings_2 = {5, 10, 15};
+    
     SearchServer server;
     server.SetStopWords("in the under"s);
     server.AddDocument(doc_id_1, content_1, DocumentStatus::ACTUAL, ratings_1);
+    server.AddDocument(doc_id_2, content_2, DocumentStatus::IRRELEVANT, ratings_2);
     
     {
         const auto found_docs = server.FindTopDocuments("city"s, DocumentStatus::ACTUAL);
@@ -179,7 +207,17 @@ void TestSearchingDocumentsWithSpecifiedStatus() {
     }
     
     {
+        const auto found_docs = server.FindTopDocuments("city"s, DocumentStatus::IRRELEVANT);
+        ASSERT_EQUAL_HINT(found_docs[0].id, doc_id_2, "Document not found by user specified status"s);
+    }
+    
+    {
         const auto found_docs = server.FindTopDocuments("city"s, DocumentStatus::BANNED);
+        ASSERT_HINT(found_docs.empty(), "Documents must not be found when there are no documents with user specified status"s);
+    }
+    
+    {
+        const auto found_docs = server.FindTopDocuments("city"s, DocumentStatus::REMOVED);
         ASSERT_HINT(found_docs.empty(), "Documents must not be found when there are no documents with user specified status"s);
     }
 }
@@ -188,15 +226,17 @@ void TestCorrectCalculationOfDocumentRelevance() {
     const int doc_id= 1;
     const string content = "cat in the city"s;
     const vector<int> ratings = {1, 2, 3};
-    const double expected_relevance = 0.549306;
+    const double expected_relevance_1 = 0.549306;
     
     const int doc_id_2 = 2;
     const string content_2 = "white rabbit in the new york city"s;
     const vector<int> ratings_2 = {10, 20, 30};
+    const double expected_relevance_2 = 0.081093;
         
     const int doc_id_3 = 3;
-    const string content_3 = "bold dog under the main city bridge"s;
+    const string content_3 = "bold dog under the new main city bridge"s;
     const vector<int> ratings_3 = {3, 5, 7};
+    const double expected_relevance_3 = 0.0579236;
     
     SearchServer server;
     server.SetStopWords("in the"s);
@@ -205,7 +245,9 @@ void TestCorrectCalculationOfDocumentRelevance() {
     server.AddDocument(doc_id_3, content_3, DocumentStatus::ACTUAL, ratings_3);
     
     const auto found_docs = server.FindTopDocuments("cat new city"s);
-    ASSERT_HINT(abs(found_docs[0].relevance - expected_relevance) < 1e-6, "Incorrect result of document relevance calculation"s);
+    ASSERT_HINT(abs(found_docs[0].relevance - expected_relevance_1) < EPSILON, "Incorrect result of document relevance calculation"s);
+    ASSERT_HINT(abs(found_docs[1].relevance - expected_relevance_2) < EPSILON, "Incorrect result of document relevance calculation"s);
+    ASSERT_HINT(abs(found_docs[2].relevance - expected_relevance_3) < EPSILON, "Incorrect result of document relevance calculation"s);
 }
 
 void TestSearchServer() {
