@@ -205,7 +205,7 @@ void TestCorrectCalculationOfDocumentRelevance() {
     server.AddDocument(doc_id_3, content_3, DocumentStatus::ACTUAL, ratings_3);
     
     const auto found_docs = server.FindTopDocuments("cat new city"s);
-    ASSERT_HINT(abs(found_docs[0].relevance - expected_relevance) < EPSILON, "Incorrect result of document relevance calculation"s);
+    ASSERT_HINT(abs(found_docs[0].relevance - expected_relevance) < 1e-6, "Incorrect result of document relevance calculation"s);
 }
 
 void TestSearchServer() {
