@@ -82,8 +82,8 @@ public:
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words)
         : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
-            for (const string& word : stop_words_) {
-                if (!IsValidWord(word)) throw invalid_argument("invalid characters (ASCII 0 - 31 symbols) when constructor is called");
+            if ( !(all_of(stop_words_.begin(), stop_words_.end(), [](const string& word) { return IsValidWord(word);})) ) {
+                throw invalid_argument("invalid characters (ASCII 0 - 31 symbols) when constructor is called");
             }
     }
 
@@ -94,8 +94,8 @@ public:
 
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                                    const vector<int>& ratings) {
-        if ((document_id < 0)) throw invalid_argument("invalid document id value (less than zero)");
-        if ((documents_.count(document_id) > 0)) throw invalid_argument("a document with this id already exists");
+        if (document_id < 0) throw invalid_argument("invalid document id value (less than zero)");
+        if (documents_.count(document_id) > 0) throw invalid_argument("a document with this id already exists");
 
         vector<string> words = SplitIntoWordsNoStop(document);
 
@@ -141,7 +141,8 @@ public:
     }
 
     int GetDocumentId(int index) const {
-            return document_ids_.at(index);
+        if (index < 0) throw out_of_range("invalid document index value (less than zero)"s);
+        return document_ids_.at(index);
     }
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
