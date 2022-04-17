@@ -82,7 +82,7 @@ public:
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words)
         : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
-            if ( !(all_of(stop_words_.begin(), stop_words_.end(), [](const string& word) { return IsValidWord(word);})) ) {
+            if ( !(all_of(stop_words_.begin(), stop_words_.end(), IsValidWord)) ) {
                 throw invalid_argument("invalid characters (ASCII 0 - 31 symbols) when constructor is called");
             }
     }
