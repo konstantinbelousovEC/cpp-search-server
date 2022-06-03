@@ -5,6 +5,7 @@
 #include "test_example_functions.h"
 #include "document.h"
 #include "search_server.h"
+#include "log_duration.h"
 
 using namespace std::string_literals;
 
@@ -18,6 +19,7 @@ void AddDocument(SearchServer& search_server, int document_id, const std::string
 }
 
 void FindTopDocuments(const SearchServer& search_server, const std::string& raw_query) {
+    LOG_DURATION_STREAM("Operation time", std::cout);
     std::cout << "Результаты поиска по запросу: "s << raw_query << std::endl;
     try {
         for (const Document& document : search_server.FindTopDocuments(raw_query)) {
@@ -29,11 +31,10 @@ void FindTopDocuments(const SearchServer& search_server, const std::string& raw_
 }
 
 void MatchDocuments(const SearchServer& search_server, const std::string& query) {
+    LOG_DURATION_STREAM("Operation time", std::cout);
     try {
         std::cout << "Матчинг документов по запросу: "s << query << std::endl;
-        const int document_count = search_server.GetDocumentCount();
-        for (int index = 0; index < document_count; ++index) {
-            const int document_id = search_server.GetDocumentId(index);
+        for (const int document_id : search_server) {
             const auto [words, status] = search_server.MatchDocument(query, document_id);
             PrintMatchDocumentResult(document_id, words, status);
         }
